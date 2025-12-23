@@ -43,12 +43,10 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         // connect
-        const socket = io("http://localhost:3000", {
-            auth: {
-                token: localStorage.getItem("token")
-            },
-
-        });
+        const socket = io("https://chat-app-ypdm.onrender.com",
+            {
+                auth: { token: localStorage.getItem("token") },
+            });
 
 
         let username;

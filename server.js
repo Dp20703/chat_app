@@ -3,13 +3,13 @@ const http = require("http");
 const { Server } = require("socket.io");
 const { login, register } = require("./auth/jwt")
 const path = require("path")
+const cors = require("cors");
 
 require("dotenv").config();
-
-
 require("./db"); // MongoDB connect
 
 const app = express();
+app.use(cors());
 app.use(express.static(path.resolve("./public")))
 app.use(express.json());
 const server = http.createServer(app);
@@ -31,12 +31,15 @@ app.post("/register", register);
 
 // create socket server
 const io = new Server(server, {
-    cors: { origin: "*" }
+    origin: "https://chat_app.vercel.app",
+    methods: ["GET", "POST"]
 });
 
 // socket logic lives elsewhere
 require("./socket")(io);
 
-server.listen(3000, () => {
-    console.log("🚀 Server running on http://localhost:3000");
+
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

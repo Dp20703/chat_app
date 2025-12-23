@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+</head>
+
+<body>
+    <div>
+        <h1 style="text-align: center;">Chat App</h1>
+        <div id="you" style="text-align: right;margin-right: 10px;font-size: 1rem;font-weight: bold;">
+        </div>
+        <div id="chat-container" style="display: flex; gap: 20px; height: 80vh;">
+            <!-- Sidebar -->
+            <div id="users-sidebar"
+                style="width: 250px; border: 1px solid #ccc; padding: 10px; overflow-y: auto;;background-color: #f1f1f1;">
+                <h3>Online Users</h3>
+                <ul id="online-users"></ul>
+            </div>
+
+            <!-- Chat Area -->
+            <div id="chat-area" style="flex: 1; display: flex; flex-direction: column;background-color: #f1f1f1;">
+                <div id="messages"
+                    style="flex: 1; border: 1px solid #ccc; padding: 10px; overflow-y: auto; margin-bottom: 10px;">
+                </div>
+
+                <div id="typing-indicator" style="height: 20px; color: red;margin-left: 5px; font-size: 12px;">
+                </div>
+
+                <form id="form" style="display: flex; gap: 10px;margin-bottom: 5px;padding:5px ;">
+                    <input type="text" autocomplete="off" id="message-input" placeholder="Type a message..."
+                        style="flex: 1; padding: 8px;outline:none;border: 1px solid #ccc;;border-radius: 10px;">
+                    <button id="send-btn"
+                        style="padding: 8px 16px;border-radius: 5px;outline: none;border: 1px solid #ccc;background-color:white;">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // connect
+        const socket = io("http://localhost:3000", {
+            auth: {
+                token: localStorage.getItem("token")
+            },
+
+        });
+
+
+        let username;
+        // connect to server
+        socket.on("connect", () => {
+            console.log("Connected as authenticated user");
+        });
+
+
+        // connection error [authentication]
+        socket.on("connect_error", (err) => {
+            console.error("Socket connection failed:", err.message);
+
+            if (err.message === "Unauthorized") {
+                alert("Please login first");
+                window.location.href = "/login";
+            }
+
+            if (err.message === "Token expired") {
+                alert("Session expired. Login again.");
+                window.location.href = "/login";
+            }
+        });
+
+
+
+        // DOM
+        const messages = document.getElementById('messages');
+        const typingDiv = document.getElementById('typing-indicator');
+        const form = document.getElementById("form");
+        const input = document.getElementById('message-input');
+        const onlineUsersList = document.getElementById("online-users");
+        const div = document.getElementById("you");
+
+
+        // receive username
+        socket.on("username", (Username) => {
+            div.innerText = "";
+            console.log("Username:", Username);
+            username = Username;
+            const p = document.createElement("p");
+            p.innerHTML = Username;
+            div.appendChild(p);
+        })
+
+        // show online users
+        socket.on("userOnline", (users) => {
+            console.log("Online Users:", users);
+            onlineUsersList.innerHTML = "";
+
+            users.forEach((user, idx) => {
+                const li = document.createElement("li");
+                if (user == username) {
+                    li.textContent = `${user} (You)`;
+                    li.style.color = "gray";
+                    li.style.cursor = "not-allowed";
+                }
+                else {
+                    li.textContent = "User " + (idx + 1) + ": " + user;
+                    li.onclick = () => {
+                        const msg = prompt(`Message to ${user}`);
+                        if (msg) sendPrivateMessage(user, msg);
+                    }
+
+                }
+                onlineUsersList.appendChild(li);
+            });
+        });
+
+        socket.on("userOffline", (username) => {
+            console.log(username, "is offline");
+        });
+
+
+
+        // appendMessage
+        function appendMessage(text, type = 'Self', msgId) {
+            const p = document.createElement("p");
+
+            // console.log("msgid", msgId);
+            // message text
+            const msgSpan = document.createElement("span");
+            msgSpan.textContent = text;
+
+            // delivery status
+            const statusSpan = document.createElement("span");
+            statusSpan.className = "status";
+
+            if (type === "Self") {
+                statusSpan.textContent = " ✓"; // sent
+            }
+
+            if (msgId) {
+                p.dataset.id = msgId;
+            }
+
+
+            p.style.textAlign = type == 'Self' ? "right" : "left";
+            p.style.fontWeight = type === "Self" ? "bold" : "normal";
+            p.style.backgroundColor = type === "Self" ? "#efefef" : "transparent";
+
+            p.appendChild(msgSpan);
+            p.appendChild(statusSpan);
+            messages.appendChild(p);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        // Sending private message
+        function sendPrivateMessage(toUsername, text) {
+            const tempId = "temp_" + Date.now();
+
+            // show message immediately (✓)
+            appendMessage(
+                `(Private to ${toUsername}): ${text}`,
+                "Self",
+                tempId
+            );
+
+            socket.emit("privateMessage", { toUsername, text },
+                (ack) => {
+                    // console.log("ack:", ack);
+
+                    if (ack.status === "delivered") {
+
+                        // console.log("✓ Delivered");
+                        const msgEl = document.querySelector(`p[data-id="${tempId}"]`);
+
+                        if (!msgEl) return;
+
+                        // update to real messageId
+                        msgEl.dataset.id = ack.messageId
+
+                        const statusSpan = msgEl.querySelector(".status");
+
+                        if (statusSpan) {
+                            statusSpan.textContent = " ✓✓"; // delivered
+                            console.log("trick trick");
+                        }
+                    }
+                });
+        }
+
+        // Receiving private message
+        socket.on("privateMessage", ({ message }) => {
+            console.log("message", message);
+            appendMessage(`${message.senderUsername}:${message.text}`, message.senderUsername, message._id);
+        })
+
+        // send message
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            if (!input.value.trim()) return;
+
+            const tempId = "temp_" + Date.now(); // tempId
+            // Append instantly for sender
+            appendMessage(`You: ${input.value}`, "Self", tempId);
+
+            // send to server
+            socket.emit("sendMessage",
+                {
+                    // toUserId: "0fe9aa18-2640-4819-b2e9-66fecfd1c88d",
+                    text: input.value
+                },
+                (ack) => {
+                    console.log("ack:", ack);
+
+                    if (ack.status === "delivered") {
+
+                        // console.log("✓ Delivered");
+                        const msgEl = document.querySelector(`p[data-id="${tempId}"]`);
+
+                        if (!msgEl) return;
+
+                        // update to real messageId
+                        msgEl.dataset.id = ack.messageId
+
+                        const statusSpan = msgEl.querySelector(".status");
+                        if (statusSpan) {
+                            statusSpan.textContent = " ✓✓"; // delivered
+                            // console.log("trick trick");
+                        }
+                    }
+                });
+            input.value = "";
+        })
+
+        // receive message
+        socket.on("receiveMessage", (message) => {
+            appendMessage(`${message.text}`, "Other", message._id);
+        });
+
+
+
+        // Show typing
+        // send typing event
+        let typingTimeout;
+        input.addEventListener("input", () => {
+            socket.emit("typing", username)
+            clearTimeout(typingTimeout);
+
+            typingTimeout = setTimeout(() => {
+                socket.emit("stop-typing", username)
+            }, 1000)
+        })
+
+        // show other's typing
+        socket.on("user-typing", (user) => {
+            typingDiv.textContent = `${user} is typing...`;
+        })
+
+        socket.on("user-stop-typing", () => {
+            typingDiv.textContent = "";
+        });
+
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Page</title>
+</head>
+
+<body>
+    <form id="form">
+        <div style="display: flex;flex-direction: column;justify-content: center; align-items: center;">
+            <input type="text" id="username" placeholder="Username"
+                style="font-size: 2vw; padding: 10px; margin: 10px;">
+
+            <input type="email" id="email" placeholder="Email" style="font-size: 2vw; padding: 10px; margin: 10px;">
+
+            <input type="password" id="password" placeholder="Password"
+                style="font-size: 2vw; padding: 10px; margin: 10px;">
+            <div>
+                <button type="submit" style="font-size: 2vw;padding: 10px; margin: 10px;"
+                    id="register">Register</button>
+                <button type="button" style="font-size: 2vw;padding: 10px; margin: 10px;" id="login">Already User
+                    ?</button>
+            </div>
+        </div>
+    </form>
+
+    <script defer>
+        document.getElementById("form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            register();
+        });
+
+
+        // send register credentials
+        async function register() {
+            const usernameInput = document.getElementById("username");
+            const emailInput = document.getElementById("email");
+            const passwordInput = document.getElementById("password");
+
+            const username = usernameInput.value.trim();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            if (!username || !email || !password) {
+                alert("All fields are required");
+                return;
+            }
+
+            try {
+                const res = await fetch("/register", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                const data = await res.json();
+               
+                // handle backend errors
+                if (!res.ok) {
+                    alert(data.message || "Registration failed");
+                    return;
+                }
+
+                // success (NO TOKEN HERE)
+                alert(data.message || "Registration successful. Please login.");
+                window.location.replace("/login.html");
+
+            } catch (error) {
+                console.error("Register error:", error);
+                alert("Server unreachable. Try again later.");
+            } finally {
+                usernameInput.value = "";
+                emailInput.value = "";
+                passwordInput.value = "";
+            }
+        }
+        // redirect to login page
+        document.getElementById("login").addEventListener("click", () => {
+
+            window.location.href = "/login";
+
+        })
+
+    </script>
+</body>
+
+</html>

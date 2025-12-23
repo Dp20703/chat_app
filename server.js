@@ -31,9 +31,13 @@ app.post("/register", register);
 
 // create socket server
 const io = new Server(server, {
-    origin: "https://chat-app-mauve-alpha-93.vercel.app/",
-    methods: ["GET", "POST"]
+    cors: {
+        origin: "https://chat-app-mauve-alpha-93.vercel.app",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
 });
+
 
 // socket logic lives elsewhere
 require("./socket")(io);

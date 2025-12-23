@@ -46,7 +46,8 @@
         const socket = io("https://chat-app-ypdm.onrender.com",
             {
                 auth: { token: localStorage.getItem("token") },
-                transports: ["websocket"]
+                transports: ["websocket"],
+                withCredentials: true
             });
 
 
